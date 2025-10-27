@@ -1,4 +1,4 @@
-name: Linux High-Speed Exit Node (Force P2P)
+name: Linux High-Speed Exit Node (Final Attempt)
 
 on:
   # Allows you to manually trigger the workflow
@@ -14,13 +14,19 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Setup Tailscale using the official action
-      - name: Setup Tailscale Exit Node (Force Direct Connection)
+      # Use the official action with only supported flags for 'tailscale up'
+      - name: Setup Tailscale Exit Node
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          # CRITICAL CHANGE: --test-no-derp forces P2P. --netcheck helps diagnose the runner's status.
-          args: --hostname=gh-linux-exit-node-${{ github.run_id }} --advertise-exit-node --netcheck --test-no-derp
+          # Removed the unsupported flags --netcheck and --test-no-derp
+          args: --hostname=gh-linux-exit-node-${{ github.run_id }} --advertise-exit-node
+          
+      - name: Run Tailscale Netcheck (Separate Step)
+        run: |
+          echo "Running Tailscale Netcheck to diagnose connectivity..."
+          # Run the netcheck command separately, which is supported by the CLI
+          tailscale netcheck
           
       - name: Verify Tailscale Status
         run: |
@@ -29,10 +35,11 @@ jobs:
           
       - name: Maintain Connection & Display Info
         run: |
+          # Use the official CLI command to get the IP
           TS_IP=$(tailscale ip -4)
           
           echo "====================================================="
-          echo "🚀 Linux Exit Node is ACTIVE. Check for Direct Connection."
+          echo "🚀 Linux Exit Node is ACTIVE and awaiting approval."
           echo "Machine Name: gh-linux-exit-node-${{ github.run_id }}"
           echo "Tailscale IP: $TS_IP"
           echo "====================================================="
