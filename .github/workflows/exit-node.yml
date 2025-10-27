@@ -6,34 +6,40 @@ on:
 
 jobs:
   exit_node:
-    # KEY CHANGE: Switches to a Linux runner for kernel-level performance
+    # Use a Linux runner for kernel-level performance
     runs-on: ubuntu-latest 
     timeout-minutes: 3600
 
     steps:
-      - name: Install Tailscale and Connect
-        run: |
-          echo "Installing Tailscale..."
-          # Install Tailscale on the Linux runner
-          curl -fsSL https://pkgs.tailscale.com/install.sh | sh
+      - name: Checkout Code (Required for using the Tailscale Action)
+        uses: actions/checkout@v4
+
+      # Key Change: Use the official Tailscale Action for reliable setup
+      - name: Setup Tailscale Exit Node
+        uses: tailscale/github-action@v2
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}  # OAuth is more secure, but we'll stick to auth key for simplicity
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          # Fallback to Auth Key if OAuth secrets are not configured
+          authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          # Advertise as an exit node (the goal)
+          args: --hostname=gh-linux-exit-node-${{ github.run_id }} --advertise-exit-node
           
-          # Start Tailscale, authenticate, name the machine, and advertise the exit node
-          # The --advertise-exit-node flag routes the runner's internet to your local PC
-          sudo tailscale up \
-            --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} \
-            --hostname=gh-linux-exit-node-$GITHUB_RUN_ID \
-            --advertise-exit-node
-            
-          # Get the Tailscale IP for reference
-          TS_IP=$(sudo tailscale ip -4)
-          echo "TAILSCALE_IP=$TS_IP" >> $GITHUB_ENV
+      - name: Verify Tailscale Status
+        run: |
+          echo "Checking Tailscale status..."
+          # The tailscale command is now in the PATH, so we don't need 'sudo' or full path
+          tailscale status
           
       - name: Maintain Connection & Display Info
         run: |
+          # Use the Tailscale action's output environment variable for the IP
+          TS_IP=$(tailscale ip -4)
+          
           echo "====================================================="
           echo "🚀 Linux Exit Node is ACTIVE and awaiting approval."
-          echo "Machine Name: gh-linux-exit-node-$GITHUB_RUN_ID"
-          echo "Tailscale IP: ${{ env.TAILSCALE_IP }}"
+          echo "Machine Name: gh-linux-exit-node-${{ github.run_id }}"
+          echo "Tailscale IP: $TS_IP"
           echo "====================================================="
           echo "REMINDER: Approve this machine as an Exit Node in the Tailscale Admin Console."
           
