@@ -1,4 +1,4 @@
-name: Linux High-Speed Exit Node
+name: Linux High-Speed Exit Node (Force P2P)
 
 on:
   # Allows you to manually trigger the workflow
@@ -11,33 +11,28 @@ jobs:
     timeout-minutes: 3600
 
     steps:
-      - name: Checkout Code (Required for using the Tailscale Action)
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Key Change: Use the official Tailscale Action for reliable setup
-      - name: Setup Tailscale Exit Node
+      # Setup Tailscale using the official action
+      - name: Setup Tailscale Exit Node (Force Direct Connection)
         uses: tailscale/github-action@v2
         with:
-          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}  # OAuth is more secure, but we'll stick to auth key for simplicity
-          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          # Fallback to Auth Key if OAuth secrets are not configured
           authkey: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          # Advertise as an exit node (the goal)
-          args: --hostname=gh-linux-exit-node-${{ github.run_id }} --advertise-exit-node
+          # CRITICAL CHANGE: --test-no-derp forces P2P. --netcheck helps diagnose the runner's status.
+          args: --hostname=gh-linux-exit-node-${{ github.run_id }} --advertise-exit-node --netcheck --test-no-derp
           
       - name: Verify Tailscale Status
         run: |
           echo "Checking Tailscale status..."
-          # The tailscale command is now in the PATH, so we don't need 'sudo' or full path
           tailscale status
           
       - name: Maintain Connection & Display Info
         run: |
-          # Use the Tailscale action's output environment variable for the IP
           TS_IP=$(tailscale ip -4)
           
           echo "====================================================="
-          echo "🚀 Linux Exit Node is ACTIVE and awaiting approval."
+          echo "🚀 Linux Exit Node is ACTIVE. Check for Direct Connection."
           echo "Machine Name: gh-linux-exit-node-${{ github.run_id }}"
           echo "Tailscale IP: $TS_IP"
           echo "====================================================="
